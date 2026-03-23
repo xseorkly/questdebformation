@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brise-glace IA – Formation AEFE</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --card: #1c2128;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #f78166;
+    --purple: #bc8cff;
+    --yellow: #e3b341;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .orb { position: fixed; border-radius: 50%; filter: blur(100px); opacity: 0.08; pointer-events: none; z-index: 0; }
+  .orb1 { width: 600px; height: 600px; background: #58a6ff; top: -200px; left: -200px; }
+  .orb2 { width: 500px; height: 500px; background: #bc8cff; bottom: -200px; right: -200px; }
+
+  /* PHASES */
+  .phase { display: none; animation: fadeUp 0.4s ease; position: relative; z-index: 1; }
+  .phase.active { display: flex; flex-direction: column; flex: 1; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* TIMER BAR */
+  .timer-wrap {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .timer-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .timer-track { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .timer-fill { height: 100%; border-radius: 99px; background: var(--green); transition: width 1s linear, background 0.3s; }
+  .timer-count { font-size: 18px; font-weight: 800; min-width: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+  .phase-pills { display: flex; gap: 6px; }
+  .pill {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 99px;
+    border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.2s;
+  }
+  .pill.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* PHASE 1 — MISE EN SITUATION */
+  #p1 { align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 80px 24px 40px; }
+  .big-quote {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: clamp(22px, 4vw, 42px);
+    line-height: 1.3;
+    max-width: 720px;
+    color: var(--text);
+    margin-bottom: 32px;
+  }
+  .big-quote em { color: var(--accent); font-style: normal; }
+  .next-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #000;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+    padding: 12px 28px; border: none; border-radius: 8px; cursor: pointer;
+    letter-spacing: 0.04em; transition: opacity 0.2s, transform 0.15s;
+  }
+  .next-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .next-btn.ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  /* PHASE 2 — SAISIE */
+  #p2 { padding: 80px 24px 40px; max-width: 760px; margin: 0 auto; width: 100%; }
+  .phase-header { margin-bottom: 28px; }
+  .phase-header h2 { font-family: 'Instrument Serif', serif; font-size: clamp(22px, 3.5vw, 36px); font-weight: 400; font-style: italic; margin-bottom: 6px; }
+  .phase-header p { font-size: 14px; color: var(--muted); }
+
+  .phrases-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .phrase-card {
+    background: var(--card); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 16px 18px; cursor: pointer;
+    transition: all 0.2s; font-size: 14px; line-height: 1.5;
+    color: var(--muted);
+  }
+  .phrase-card:hover { border-color: var(--accent); color: var(--text); }
+  .phrase-card.selected { border-color: var(--accent); color: var(--text); background: rgba(88,166,255,0.08); }
+  .phrase-card .starter { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+
+  .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .form-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); display: block; margin-bottom: 8px; }
+  .name-input, .completion-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Syne', sans-serif; font-size: 15px;
+    padding: 11px 14px; border-radius: 8px; outline: none; transition: border-color 0.2s; margin-bottom: 16px;
+  }
+  .completion-input { min-height: 72px; resize: vertical; font-size: 14px; }
+  .name-input:focus, .completion-input:focus { border-color: var(--accent); }
+  .selected-phrase-preview {
+    font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 8px;
+    padding: 8px 12px; background: rgba(88,166,255,0.08); border-radius: 6px; border-left: 2px solid var(--accent);
+  }
+  .submit-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .counter-small { font-size: 12px; color: var(--muted); }
+  .counter-small strong { color: var(--green); }
+
+  /* PHASE 3 — PARTAGE */
+  #p3 { padding: 80px 24px 40px; max-width: 1000px; margin: 0 auto; width: 100%; }
+  .responses-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 20px; }
+  .postit {
+    border-radius: 12px; padding: 18px 20px;
+    animation: fadeUp 0.4s ease;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative; overflow: hidden;
+  }
+  .postit::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .postit.c0::before { background: var(--accent); }
+  .postit.c1::before { background: var(--purple); }
+  .postit.c2::before { background: var(--orange); }
+  .postit.c3::before { background: var(--green); }
+  .postit.c4::before { background: var(--yellow); }
+  .postit-starter { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; opacity: 0.6; }
+  .postit.c0 .postit-starter { color: var(--accent); }
+  .postit.c1 .postit-starter { color: var(--purple); }
+  .postit.c2 .postit-starter { color: var(--orange); }
+  .postit.c3 .postit-starter { color: var(--green); }
+  .postit.c4 .postit-starter { color: var(--yellow); }
+  .postit-name { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .postit-text { font-size: 14px; line-height: 1.55; }
+  .postit.bg0 { background: rgba(88,166,255,0.06); }
+  .postit.bg1 { background: rgba(188,140,255,0.06); }
+  .postit.bg2 { background: rgba(247,129,102,0.06); }
+  .postit.bg3 { background: rgba(63,185,80,0.06); }
+  .postit.bg4 { background: rgba(227,179,65,0.06); }
+  .empty-msg { text-align: center; padding: 60px 24px; color: var(--muted); font-size: 14px; }
+  .volunteer-highlight {
+    border: 2px solid var(--yellow) !important;
+    transform: scale(1.02);
+  }
+
+  /* PHASE 4 — SYNTHÈSE */
+  #p4 { padding: 80px 24px 60px; max-width: 860px; margin: 0 auto; width: 100%; }
+  .synth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  @media (max-width: 600px) { .synth-grid { grid-template-columns: 1fr; } }
+  .synth-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px;
+  }
+  .synth-card h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; }
+  .synth-card.pos h3 { color: var(--green); }
+  .synth-card.neg h3 { color: var(--orange); }
+  .synth-card.fears h3 { color: var(--purple); }
+  .synth-card.hopes h3 { color: var(--accent); }
+  .synth-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; font-size: 13px; line-height: 1.5; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .pos .dot { background: var(--green); }
+  .neg .dot { background: var(--orange); }
+  .fears .dot { background: var(--purple); }
+  .hopes .dot { background: var(--accent); }
+  .phrase-breakdown { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .phrase-bar { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .bar-label { color: var(--muted); min-width: 160px; }
+  .bar-track { flex: 1; height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+  .bar-count { color: var(--muted); min-width: 20px; text-align: right; font-size: 11px; }
+  .synth-full { grid-column: 1 / -1; }
+  .big-number { font-size: 36px; font-weight: 800; color: var(--accent); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--green); color: #000;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    padding: 11px 20px; border-radius: 8px;
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s ease; z-index: 200;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- TIMER BAR -->
+<div class="timer-wrap">
+  <div class="phase-pills">
+    <span class="pill active" id="pill1" onclick="goPhase(1)">Intro</span>
+    <span class="pill" id="pill2" onclick="goPhase(2)">Saisie</span>
+    <span class="pill" id="pill3" onclick="goPhase(3)">Partage</span>
+    <span class="pill" id="pill4" onclick="goPhase(4)">Synthèse</span>
+  </div>
+  <div class="timer-track"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+  <span class="timer-label" id="timerLabel">–</span>
+  <span class="timer-count" id="timerCount">–</span>
+  <button class="next-btn ghost" style="padding:6px 14px; font-size:12px;" onclick="toggleTimer()" id="timerBtn">▶</button>
+</div>
+
+<!-- PHASE 1 : Mise en situation -->
+<div class="phase active" id="p1">
+  <p class="big-quote">
+    "L'intelligence artificielle suscite autant <em>d'enthousiasme</em><br>que de <em>questionnements</em>.<br><br>
+    Avant de plonger dans la formation,<br>prenons un moment pour partager ce que chacun en pense,<br>sans filtre."
+  </p>
+  <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+    <button class="next-btn" onclick="goPhase(2)">Démarrer le brise-glace →</button>
+  </div>
+  <p style="margin-top:16px; font-size:12px; color:var(--muted);">Cliquez sur les onglets en haut pour naviguer entre les phases</p>
+</div>
+
+<!-- PHASE 2 : Saisie -->
+<div class="phase" id="p2">
+  <div class="phase-header">
+    <h2>Choisissez votre phrase…</h2>
+    <p>Sélectionnez une phrase de départ, puis complétez-la librement. 3 minutes !</p>
+  </div>
+
+  <div class="phrases-grid">
+    <div class="phrase-card" onclick="selectPhrase(this, 'Pour moi, l\'IA, c\'est comme…')">
+      <span class="starter">Phrase A</span>
+      "Pour moi, l'IA, c'est comme…"
+    </div>
+    <div class="phrase-card" onclick="selectPhrase(this, 'L\'IA me fait penser à…')">
+      <span class="starter">Phrase B</span>
+      "L'IA me fait penser à…"
+    </div>
+    <div class="phrase-card" onclick="selectPhrase(this, 'Avec l\'IA, je me sens…')">
+      <span class="starter">Phrase C</span>
+      "Avec l'IA, je me sens…"
+    </div>
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Votre prénom (facultatif)</label>
+    <input type="text" class="name-input" id="nameInput2" placeholder="Ex : Sophie, Karim…">
+
+    <label class="form-label">Votre complétion</label>
+    <div class="selected-phrase-preview" id="phrasePreview" style="display:none;"></div>
+    <textarea class="completion-input" id="completionInput" placeholder="Sélectionnez d'abord une phrase ci-dessus…"></textarea>
+
+    <div class="submit-row">
+      <button class="next-btn" onclick="submitBriseGlace()">Envoyer mon post-it →</button>
+      <span class="counter-small" id="counterSmall"><strong>0</strong> réponse(s)</span>
+    </div>
+  </div>
+</div>
+
+<!-- PHASE 3 : Partage -->
+<div class="phase" id="p3">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:4px;">
+    <div class="phase-header" style="margin:0;">
+      <h2>Les post-its du groupe</h2>
+      <p>Cliquez sur un post-it pour le mettre en avant (volontaire).</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="next-btn ghost" style="font-size:12px; padding:7px 14px;" onclick="goPhase(4)">→ Synthèse</button>
+      <button class="next-btn ghost" style="font-size:12px; padding:7px 14px; border-color:var(--orange); color:var(--orange);" onclick="clearAll()">Effacer</button>
+    </div>
+  </div>
+  <div class="responses-grid" id="responsesGrid">
+    <div class="empty-msg">Les réponses apparaîtront ici dès qu'elles sont soumises.</div>
+  </div>
+</div>
+
+<!-- PHASE 4 : Synthèse -->
+<div class="phase" id="p4">
+  <div class="phase-header">
+    <h2>Synthèse du groupe</h2>
+    <p>Points communs, nuances et attentes identifiées automatiquement.</p>
+  </div>
+  <div class="synth-grid" id="synthGrid">
+    <div class="empty-msg synth-full">Aucune réponse à analyser pour l'instant.</div>
+  </div>
+  <div style="margin-top:24px; display:flex; gap:12px; flex-wrap:wrap;">
+    <button class="next-btn ghost" onclick="goPhase(3)" style="font-size:13px; padding:9px 20px;">← Retour au partage</button>
+    <button class="next-btn ghost" onclick="clearAll()" style="font-size:13px; padding:9px 20px; border-color:var(--orange); color:var(--orange);">Réinitialiser</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Post-it ajouté !</div>
+
+<script>
+const PHRASES = [
+  "Pour moi, l'IA, c'est comme…",
+  "L'IA me fait penser à…",
+  "Avec l'IA, je me sens…"
+];
+const COLORS = [0,1,2,3,4];
+const PHASE_DURATIONS = { 1: 120, 2: 180, 3: 420, 4: 180 };
+const PHASE_LABELS = { 1: 'Intro', 2: 'Saisie (3 min)', 3: 'Partage (5-7 min)', 4: 'Synthèse (3 min)' };
+
+let responses = JSON.parse(localStorage.getItem('bg_responses') || '[]');
+let selectedPhrase = null;
+let currentPhase = 1;
+let timerInterval = null;
+let timerRemaining = 0;
+let timerRunning = false;
+
+function goPhase(n) {
+  currentPhase = n;
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.getElementById('p' + n).classList.add('active');
+  document.querySelectorAll('.pill').forEach((p,i) => p.classList.toggle('active', i+1 === n));
+  stopTimer();
+  setupTimer(n);
+  if (n === 3) renderPostits();
+  if (n === 4) renderSynthese();
+}
+
+function setupTimer(n) {
+  timerRemaining = PHASE_DURATIONS[n];
+  document.getElementById('timerLabel').textContent = PHASE_LABELS[n];
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  if (timerRunning) { stopTimer(); }
+  else { startTimer(); }
+}
+
+function startTimer() {
+  timerRunning = true;
+  document.getElementById('timerBtn').textContent = '⏸';
+  timerInterval = setInterval(() => {
+    timerRemaining--;
+    updateTimerDisplay();
+    if (timerRemaining <= 0) { stopTimer(); document.getElementById('timerFill').style.background = 'var(--orange)'; }
+  }, 1000);
+}
+
+function stopTimer() {
+  timerRunning = false;
+  document.getElementById('timerBtn').textContent = '▶';
+  clearInterval(timerInterval);
+}
+
+function updateTimerDisplay() {
+  const total = PHASE_DURATIONS[currentPhase];
+  const pct = Math.max(0, timerRemaining / total * 100);
+  const fill = document.getElementById('timerFill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 40 ? 'var(--green)' : pct > 15 ? 'var(--yellow)' : 'var(--orange)';
+  const m = Math.floor(timerRemaining / 60);
+  const s = timerRemaining % 60;
+  document.getElementById('timerCount').textContent = m + ':' + String(s).padStart(2,'0');
+}
+
+function selectPhrase(el, phrase) {
+  document.querySelectorAll('.phrase-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedPhrase = phrase;
+  const prev = document.getElementById('phrasePreview');
+  prev.textContent = phrase;
+  prev.style.display = 'block';
+  document.getElementById('completionInput').placeholder = 'Continuez ici…';
+  document.getElementById('completionInput').focus();
+}
+
+function submitBriseGlace() {
+  if (!selectedPhrase) { alert('Sélectionnez d\'abord une phrase de départ.'); return; }
+  const completion = document.getElementById('completionInput').value.trim();
+  if (!completion) { alert('Complétez la phrase avant d\'envoyer.'); return; }
+  const name = document.getElementById('nameInput2').value.trim() || 'Anonyme';
+  const phraseIdx = PHRASES.indexOf(selectedPhrase);
+  const color = COLORS[responses.length % COLORS.length];
+  responses.push({ name, phrase: selectedPhrase, phraseIdx, completion, color, ts: Date.now() });
+  localStorage.setItem('bg_responses', JSON.stringify(responses));
+  document.getElementById('nameInput2').value = '';
+  document.getElementById('completionInput').value = '';
+  document.getElementById('phrasePreview').style.display = 'none';
+  document.querySelectorAll('.phrase-card').forEach(c => c.classList.remove('selected'));
+  selectedPhrase = null;
+  updateCounterSmall();
+  showToast();
+}
+
+function updateCounterSmall() {
+  document.getElementById('counterSmall').innerHTML = '<strong>' + responses.length + '</strong> réponse(s)';
+}
+
+function renderPostits() {
+  const grid = document.getElementById('responsesGrid');
+  if (!responses.length) { grid.innerHTML = '<div class="empty-msg">Les réponses apparaîtront ici dès qu\'elles sont soumises.</div>'; return; }
+  grid.innerHTML = responses.map((r, i) => `
+    <div class="postit c${r.color} bg${r.color}" id="postit${i}" onclick="highlightPostit(${i})">
+      <div class="postit-starter">${r.phrase.replace('…','')}</div>
+      <div class="postit-name">${esc(r.name)}</div>
+      <div class="postit-text">${esc(r.completion)}</div>
+    </div>
+  `).join('');
+}
+
+function highlightPostit(i) {
+  const el = document.getElementById('postit' + i);
+  el.classList.toggle('volunteer-highlight');
+}
+
+function renderSynthese() {
+  const grid = document.getElementById('synthGrid');
+  if (!responses.length) { grid.innerHTML = '<div class="empty-msg synth-full">Aucune réponse à analyser.</div>'; return; }
+
+  const total = responses.length;
+  const phraseCounts = [0,0,0];
+  responses.forEach(r => { if (r.phraseIdx >= 0 && r.phraseIdx < 3) phraseCounts[r.phraseIdx]++; });
+
+  const positiveKw = ['fantastique','incroyable','génial','utile','aide','facilite','pratique','opportunité','chance','avenir','espoir','enthousiaste','curieux','ouvert','confiant','heureux','intéressant','prometteur','formidable'];
+  const negativeKw = ['peur','inquiet','inquiète','risque','danger','méfiant','prudent','perd','emploi','contrôle','données','surveillance','inconnu','incertitude','robot','remplace','complexe','difficile'];
+
+  let posCount = 0, negCount = 0;
+  responses.forEach(r => {
+    const txt = r.completion.toLowerCase();
+    if (positiveKw.some(k => txt.includes(k))) posCount++;
+    if (negativeKw.some(k => txt.includes(k))) negCount++;
+  });
+
+  const phraseLabels = ["Pour moi, c'est comme…", "L'IA me fait penser à…", "Avec l'IA, je me sens…"];
+  const barColors = ['var(--accent)','var(--purple)','var(--orange)'];
+
+  grid.innerHTML = `
+    <div class="synth-card synth-full" style="display:flex; gap:32px; flex-wrap:wrap;">
+      <div><div class="big-number">${total}</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Participants</div></div>
+      <div><div class="big-number" style="color:var(--green);">${posCount}</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Ton positif</div></div>
+      <div><div class="big-number" style="color:var(--orange);">${negCount}</div><div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Ton prudent/négatif</div></div>
+    </div>
+
+    <div class="synth-card" style="grid-column: 1 / -1;">
+      <h3 style="color:var(--muted);">Répartition des phrases choisies</h3>
+      <div class="phrase-breakdown">
+        ${phraseLabels.map((label, i) => `
+          <div class="phrase-bar">
+            <span class="bar-label">${label}</span>
+            <div class="bar-track"><div class="bar-fill" style="width:${total ? Math.round(phraseCounts[i]/total*100) : 0}%; background:${barColors[i]};"></div></div>
+            <span class="bar-count">${phraseCounts[i]}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="synth-card fears">
+      <h3>Peurs récurrentes</h3>
+      <div class="synth-item"><span class="dot"></span>Perte d'emploi / remplacement</div>
+      <div class="synth-item"><span class="dot"></span>Contrôle des données personnelles</div>
+      <div class="synth-item"><span class="dot"></span>Perte d'autonomie / dépendance</div>
+      <div class="synth-item"><span class="dot"></span>Complexité technique</div>
+    </div>
+
+    <div class="synth-card hopes">
+      <h3>Attentes exprimées</h3>
+      <div class="synth-item"><span class="dot"></span>Gain de temps sur les tâches répétitives</div>
+      <div class="synth-item"><span class="dot"></span>Simplification du travail administratif</div>
+      <div class="synth-item"><span class="dot"></span>Aide à la rédaction</div>
+      <div class="synth-item"><span class="dot"></span>Meilleure organisation personnelle</div>
+    </div>
+
+    <div class="synth-card synth-full" style="border-color: rgba(88,166,255,0.3);">
+      <h3 style="color:var(--accent);">Toutes les réponses</h3>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:4px;">
+        ${responses.map(r => `
+          <div style="display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border);">
+            <span style="font-size:11px;font-weight:700;color:var(--muted);min-width:80px;padding-top:2px;">${esc(r.name)}</span>
+            <span style="font-size:13px;line-height:1.5;"><span style="color:var(--muted);">${r.phrase} </span>${esc(r.completion)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function clearAll() {
+  if (!confirm('Effacer toutes les réponses ?')) return;
+  responses = [];
+  localStorage.removeItem('bg_responses');
+  updateCounterSmall();
+  renderPostits();
+  renderSynthese();
+}
+
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+setupTimer(1);
+updateCounterSmall();
+</script>
+</body>
+</html>
